@@ -31,11 +31,12 @@ const fetchList = async () => {
 
   // Construct HTML for list items
   let listItemHTML = "";
-  for (let data of result) {
-    listItemHTML += `
-        <li tabindex="0" class="mr-2" id="list-item">${data.id}\t${data.todo}</li>
-    `;
-  }
+  result.forEach((data) => {
+    listItemHTML += `<div class="flex-row align-center">
+    <p style="margin: 0;">-></p>
+    <li tabindex="0" class="mr-2" >${data.todo}</li>
+    </div>`;
+  });
 
   // Update the list group container with the generated HTML
   listGroup.innerHTML = listItemHTML;
@@ -53,11 +54,14 @@ document.addEventListener("DOMContentLoaded", () => {
     item.addEventListener("blur", () => {
       item.classList.remove("focused");
     });
+    item.addEventListener("click", (event) => {
+      convertToListItemInput(event.target); // Convert the list item into an input field
+    });
   });
 });
 
-// Register event listener for arrow key navigation
-document.addEventListener("keydown", (event) => {
+// Register event listener for arrow key navigation and editing
+document.addEventListener("keydown", async (event) => {
   const focusedElement = document.activeElement;
   const listItems = document.querySelectorAll("#list-group li");
 
@@ -75,8 +79,60 @@ document.addEventListener("keydown", (event) => {
       }
       listItems[nextIndex].focus();
     }
+  } else if (event.key === "Enter" && focusedElement.tagName === "LI") {
+    // Handle editing when Enter key is pressed on a list item
+
+    console.log(`currentIndex ${currentIndex}`);
+
+    const focusedElementId = currentIndex + 1;
+    convertToListItemInput(focusedElement, focusedElementId);
+
+    // await window.editList(focusedElement);
   }
 });
+
+function convertToListItemInput(listItem, listItemId) {
+  const text = listItem.textContent.trim(); // Get the text content of the list item
+  const inputField = document.createElement("input"); // Create an input field
+  inputField.type = "text";
+  inputField.value = text;
+  inputField.classList.add("editable"); // Add a class to style the input field
+
+  // Replace the list item with the input field
+  listItem.replaceWith(inputField);
+
+  // Focus on the input field and select its text
+  inputField.focus();
+  inputField.select();
+
+  // Event listener to handle Enter key press
+  inputField.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      saveEditedText(inputField, listItemId); // Save the edited text
+    }
+  });
+}
+function saveEditedText(inputField, inputFieldId) {
+  const newText = inputField.value.trim(); // Get the edited text
+
+  putDb(inputFieldId, newText)
+    .then(() => {
+      console.log("Text updated successfully");
+    })
+    .catch((error) => {
+      console.error("Error updating text:", error);
+    });
+
+  const listItem = document.createElement("li"); // Create a new list item
+  listItem.setAttribute("tabindex", "0");
+  listItem.classList.add("mr-2");
+  listItem.id = inputFieldId;
+  listItem.textContent = newText;
+
+  // Replace the input field with the new list item
+  inputField.replaceWith(listItem);
+  fetchList();
+}
 
 // Register service worker if supported
 if ("serviceWorker" in navigator) {
